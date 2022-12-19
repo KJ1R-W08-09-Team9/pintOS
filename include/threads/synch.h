@@ -45,4 +45,7 @@ void cond_broadcast (struct condition *, struct lock *);
  * reference guide for more information.*/
 #define barrier() asm volatile ("" : : : "memory")
 
+/* synchronization 관련 함수 추가 */
+// bool cmp_sem_priority (const struct list_elem *, const struct list_elem *, void * UNUSED);
+
 #endif /* threads/synch.h */

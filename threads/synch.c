@@ -32,6 +32,27 @@
 #include "threads/interrupt.h"
 #include "threads/thread.h"
 
+/* */
+// bool cmp_sem_priority (const struct list_elem *a, const struct list_elem *b, void *aux UNUSED){
+	// struct semaphore_elem *list_entry_a = list_entry(a, struct semaphore_elem, elem);
+	// struct semaphore_elem *list_entry_b = list_entry(b, struct semaphore_elem, elem);
+
+	// struct list_elem *list_elem_a = list_begin(&(list_entry_a->semaphore.waiters));
+	// struct list_elem *list_elem_b = list_begin(&(list_entry_b->semaphore.waiters));
+	// /* semaphore_elem 으로부터 각 semaphore_elem의 쓰레드 디스크립터를 획득 
+	// 첫 번째 인자의 우선순위가 두 번째 인자의 우선순위보다 높으면 1을 반환, 낮으면 0을 반환 */
+	// struct thread *thread_a = list_entry(list_elem_a, struct thread, elem);
+	// struct thread *thread_b = list_entry(list_elem_b, struct thread, elem);
+
+	// if (thread_a->priority > thread_b->priority)
+	// 	return true;
+	// else
+	// 	return false;
+	
+// }
+
+
+
 /* Initializes semaphore SEMA to VALUE.  A semaphore is a
    nonnegative integer along with two atomic operators for
    manipulating it:
@@ -68,7 +89,8 @@ sema_down (struct semaphore *sema) {
 	old_level = intr_disable ();
 	while (sema->value == 0) {
 		//세마포의 값이 0이면, 현재스레드를 BLOCK 으로 변경 후 schedule() 호출 
-		list_push_back (&sema->waiters, &thread_current ()->elem);
+		// list_push_back (&sema->waiters, &thread_current ()->elem);
+		list_insert_ordered(&sema->waiters, &thread_current ()->elem, cmp_priority, NULL );
 		thread_block ();
 	}
 	sema->value--;
@@ -111,12 +133,17 @@ sema_up (struct semaphore *sema) {
 	ASSERT (sema != NULL);
 
 	old_level = intr_disable ();
-	if (!list_empty (&sema->waiters))
-	//waiters에 스레드가 존재하면 리스트 맨 처음에 위치한 스레드를 ready상태로 변경 후 schedule 호출
+	if (!list_empty (&sema->waiters)){
+	/* waiters에 스레드가 존재하면 리스트 맨 처음에 위치한 스레드를 ready상태로 변경 후 schedule 호출 */
 		thread_unblock (list_entry (list_pop_front (&sema->waiters),
 					struct thread, elem));
+	/* watier_list에 있는 쓰레드의 우선순위가 변경 되었을 경우를 고려하여 list_sort를 사용해
+		watier list 정렬 */	
+		list_sort(&sema->waiters, cmp_priority, NULL);
+	}
 	sema->value++;
 	intr_set_level (old_level);
+	test_max_priority();
 }
 
 static void sema_test_helper (void *sema_);

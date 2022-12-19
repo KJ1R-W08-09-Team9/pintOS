@@ -94,8 +94,8 @@ struct thread {
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem elem;              /* List element. */
-	// TODO: 나중에 프로세스 종료 유무 필드 등 추가 해야함.
 	
+	/* sleep list의 thread 중에서의 가장 최소 local tick 값 =  global tick */
 	int64_t tick_to_awake;
 
 
@@ -155,4 +155,7 @@ int64_t get_next_tick_to_awake(void);
 
 void do_iret (struct intr_frame *tf);
 
+/* Priority Scheduling 관련 함수 추가 */
+void test_max_priority(void);
+bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
 #endif /* threads/thread.h */

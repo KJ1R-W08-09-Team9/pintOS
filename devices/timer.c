@@ -90,24 +90,20 @@ timer_elapsed (int64_t then) {
 /* Suspends execution for approximately TICKS timer ticks. */
 void
 timer_sleep (int64_t ticks) {
-	//TODO : 예외처리 
+	//시간이 음수거나 0 인 경우 예외처리
 	if (ticks <= 0){
 		return ;
 	}
 
-	// 인자로 주어진 ticks 동안 스레드를 block
+	// timer_ticks() : 인자로 주어진 ticks 동안 스레드를 block
 	int64_t start = timer_ticks ();
 
 	ASSERT (intr_get_level () == INTR_ON);
-	// while (timer_elapsed (start) < ticks)
-	// 	thread_yield ();
 
 	 // busy waiting -> sleep & wake up
 	 if (timer_elapsed(start) < ticks){
 		thread_sleep(start + ticks);
 	 }
-
-
 }
 
 /* Suspends execution for approximately MS milliseconds. */
@@ -145,10 +141,10 @@ static void
 timer_interrupt (struct intr_frame *args UNUSED) {
 	ticks++;
 	thread_tick ();
-
+	//global tick을 가져온다.
 	int64_t next_tick = get_next_tick_to_awake();
 
-	//추가 sleep list에서 꺠어나야할 thread가 있다면 awake 호출 
+	//sleep list에서 깨어나야 할 thread가 있다면 awake 호출 
 	if (next_tick <= ticks){
 		thread_awake(ticks);
 	}

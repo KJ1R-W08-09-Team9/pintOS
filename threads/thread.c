@@ -28,7 +28,7 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
-/* 추가 sleep list */
+/* sleep list */
 static struct list sleep_list;
 
 /* Idle thread. */
@@ -100,7 +100,7 @@ static uint64_t gdt[3] = { 0, 0x00af9a000000ffff, 0x00cf92000000ffff };
    finishes. */
 
 
-/* 추가 sleep_list에서 대기 중인 thread들의 tick 값 중 가장 작은 tick  */
+/* sleep_list에서 대기 중인 thread들의 tick 값 중 가장 작은 tick  */
 int64_t next_tick_to_awake = INT64_MAX;
 
 void
@@ -120,7 +120,7 @@ thread_init (void) {
 	lock_init (&tid_lock);
 	list_init (&ready_list);
 
-	//추가 
+	/* sleep_list 초기화 */
 	list_init(&sleep_list);
 	list_init (&destruction_req);
 
@@ -194,6 +194,7 @@ tid_t
 thread_create (const char *name, int priority,
 		thread_func *function, void *aux) {
 	struct thread *t;
+	struct thread *curr;
 	tid_t tid;
 
 	ASSERT (function != NULL);
@@ -218,9 +219,18 @@ thread_create (const char *name, int priority,
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
-	/* Add to run queue. */
+	/* Add to run queue. */ 
+	// 	ASSERT (t->status == THREAD_BLOCKED);
+	// list_push_back (&ready_list, &t->elem);
+
 	thread_unblock (t);
-	//TODO : 세마포어 초기화 
+	curr = thread_current();
+	/* create 후 ready_list에 add 시 new thread와 current thread의 우선순위 비교, 
+	만약 새로운 쓰레드의 우선순위가 더 높으면 schedule 호출하고 현재 쓰레드는 yield */
+	if (t->priority > curr->priority){
+		// schedule();
+		thread_yield();
+	}
 	return tid;
 }
 
@@ -254,10 +264,10 @@ thread_unblock (struct thread *t) {
 
 	old_level = intr_disable ();
 	ASSERT (t->status == THREAD_BLOCKED);
-	list_push_back (&ready_list, &t->elem);
+	/* list push -> list_insert_ordered 로 수정 */
+	list_insert_ordered (&ready_list, &t->elem, cmp_priority, NULL);
 	t->status = THREAD_READY;
 	intr_set_level (old_level);
-	// TODO : unblock에서 schedule호출? 실습 강의자료 97
 }
 
 /* Returns the name of the running thread. */
@@ -318,15 +328,19 @@ thread_yield (void) {
 
 	old_level = intr_disable ();
 	if (curr != idle_thread)
-		list_push_back (&ready_list, &curr->elem);
+		list_insert_ordered (&ready_list, &curr->elem, cmp_priority, NULL);
+		// list_push_back (&ready_list, &curr->elem);
 	do_schedule (THREAD_READY);
 	intr_set_level (old_level);
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
+/* 새로운 priority로 변경 후 current thread와 
+current thread priority 변경*/
 void
 thread_set_priority (int new_priority) {
 	thread_current ()->priority = new_priority;
+	test_max_priority();
 }
 
 /* Returns the current thread's priority. */
@@ -606,10 +620,9 @@ allocate_tid (void) {
 	return tid;
 }
 
-/* 추가 thread_sleep   
-현재 current가 idle이 아니라면
-thread를 sleep queue에 삽입하고, blocked 상태로 만듬
-wake up을 위한 local tick을 저장하고, 
+/*  thread_sleep   
+현재 current가 idle이 아니라면 thread를 sleep queue에 삽입하고, blocked 상태로 만듬
+wake up을 위한 local tick을 저장하고,  
 global tick이랑 비교해서 더 작으면 global tick 갱신
 해당 과정 중엔 interrupt을 disable
 */
@@ -620,24 +633,24 @@ void thread_sleep(int64_t tick){
 	ASSERT (!intr_context ());
 	old_level = intr_disable ();
 
-	// FIXME : do_chedule ? block? 확인해야함
 	if (curr != idle_thread){
 		curr->tick_to_awake = tick;		
-		update_next_tick_to_awake(curr->tick_to_awake);
+		update_next_tick_to_awake(tick);
+		//FIXME : 여기 고쳐야 할 수도
 		list_push_back (&sleep_list, &curr->elem);
-		// block 함수가 state 변경 & schedule() 호출 
-		thread_block();
-	}
-	
-	// do_schedule (THREAD_READY);
+		/* block 함수가 state 변경 & schedule() 호출  */ 
+		/* thread_block(); */
+	}	
+	do_schedule(THREAD_BLOCKED);
 	intr_set_level (old_level);
 }
+
 /* sleep list에 local tick이 인자로 받은 ticks값보다 크거나 같은 쓰레드를 깨움
 현재 대기중인 스레들의 wakup_tick 변수 중 가장 작은 값을 global variable tick에 저장 
  */
 void thread_awake(int64_t ticks){
 	next_tick_to_awake = INT64_MAX;
-	struct thread * t;
+	struct thread *t;
 	struct list_elem *e;
 	
 	e = list_begin (&sleep_list);
@@ -647,25 +660,55 @@ void thread_awake(int64_t ticks){
 			int64_t local_tick = t->tick_to_awake;
 
 			if (local_tick <= ticks){
+				/* sleep queue에서 삭제 */
 				e = list_remove(&t->elem);
+				/* state 변경 , push ready queue  */
 				thread_unblock(t);
 			}
-				//깨워줘야함
 			else{
 				e = list_next(e);
+				/* global tick 갱신 */
 				update_next_tick_to_awake(local_tick);
 		 	}
 	}
-
 }
 
+/* global tick 업데이트 함수 */
 void update_next_tick_to_awake(int64_t ticks){
 	if (ticks < get_next_tick_to_awake()){
 		next_tick_to_awake = ticks;
 	}
 }
-
+/* global tick get 함수 */
 int64_t get_next_tick_to_awake(void){
 	return next_tick_to_awake;
 }
 
+
+/* ready_list에서 priorty가 가장 높은 쓰레드와 현재 쓰레드의 우선 순위를 비교 */
+void test_max_priority(void){
+	struct thread *curr = thread_current();
+	struct list_elem * e;
+	struct thread *ready_list_thread;
+	e = list_begin(&ready_list);
+	ready_list_thread = list_entry(e, struct thread, elem);
+
+	/* 현재 쓰레드의 우선순위가 더 작다면 current thread 양보 */
+	if (ready_list_thread->priority > curr->priority){
+		thread_yield();
+	}
+	return ;
+}
+
+/* 첫 번째 인자의 우선순위가 높으면 1을 반환, 두 번째 인자의 우선순위가 높으면 0을 반환 
+a가 리스트에 들어가는 element이고 들어갈 위치를 확인해야함. */
+bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED){
+
+	struct thread *list_entry_a = list_entry(a, struct thread, elem);
+	struct thread *list_entry_b = list_entry(b, struct thread, elem);
+
+	if (list_entry_a->priority > list_entry_b->priority)
+		return true;
+	else
+		return false ;
+}
