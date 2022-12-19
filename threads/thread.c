@@ -28,6 +28,9 @@
    that are ready to run but not actually running. */
 static struct list ready_list;
 
+/* 추가 sleep list */
+static struct list sleep_list;
+
 /* Idle thread. */
 static struct thread *idle_thread;
 
@@ -63,6 +66,9 @@ static void do_schedule(int status);
 static void schedule (void);
 static tid_t allocate_tid (void);
 
+/* global tick을 쓰레드 local tick 중 가장 작은 tick 값으로 update */
+void update_next_tick_to_awake(int64_t ticks);
+
 /* Returns true if T appears to point to a valid thread. */
 #define is_thread(t) ((t) != NULL && (t)->magic == THREAD_MAGIC)
 
@@ -92,6 +98,11 @@ static uint64_t gdt[3] = { 0, 0x00af9a000000ffff, 0x00cf92000000ffff };
 
    It is not safe to call thread_current() until this function
    finishes. */
+
+
+/* 추가 sleep_list에서 대기 중인 thread들의 tick 값 중 가장 작은 tick  */
+int64_t next_tick_to_awake = INT64_MAX;
+
 void
 thread_init (void) {
 	ASSERT (intr_get_level () == INTR_OFF);
@@ -108,6 +119,9 @@ thread_init (void) {
 	/* Init the globla thread context */
 	lock_init (&tid_lock);
 	list_init (&ready_list);
+
+	//추가 
+	list_init(&sleep_list);
 	list_init (&destruction_req);
 
 	/* Set up a thread structure for the running thread. */
@@ -206,7 +220,7 @@ thread_create (const char *name, int priority,
 
 	/* Add to run queue. */
 	thread_unblock (t);
-
+	//TODO : 세마포어 초기화 
 	return tid;
 }
 
@@ -243,6 +257,7 @@ thread_unblock (struct thread *t) {
 	list_push_back (&ready_list, &t->elem);
 	t->status = THREAD_READY;
 	intr_set_level (old_level);
+	// TODO : unblock에서 schedule호출? 실습 강의자료 97
 }
 
 /* Returns the name of the running thread. */
@@ -399,6 +414,7 @@ kernel_thread (thread_func *function, void *aux) {
    NAME. */
 static void
 init_thread (struct thread *t, const char *name, int priority) {
+	// TODO : tick 초기화 
 	ASSERT (t != NULL);
 	ASSERT (PRI_MIN <= priority && priority <= PRI_MAX);
 	ASSERT (name != NULL);
@@ -409,6 +425,7 @@ init_thread (struct thread *t, const char *name, int priority) {
 	t->tf.rsp = (uint64_t) t + PGSIZE - sizeof (void *);
 	t->priority = priority;
 	t->magic = THREAD_MAGIC;
+	t->tick_to_awake = INT64_MAX;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should
@@ -554,7 +571,7 @@ schedule (void) {
 
 #ifdef USERPROG
 	/* Activate the new address space. */
-	process_activate (next);
+	process_activate (next);	
 #endif
 
 	if (curr != next) {
@@ -588,3 +605,67 @@ allocate_tid (void) {
 
 	return tid;
 }
+
+/* 추가 thread_sleep   
+현재 current가 idle이 아니라면
+thread를 sleep queue에 삽입하고, blocked 상태로 만듬
+wake up을 위한 local tick을 저장하고, 
+global tick이랑 비교해서 더 작으면 global tick 갱신
+해당 과정 중엔 interrupt을 disable
+*/
+void thread_sleep(int64_t tick){
+	struct thread *curr = thread_current ();
+	enum intr_level old_level;
+
+	ASSERT (!intr_context ());
+	old_level = intr_disable ();
+
+	// FIXME : do_chedule ? block? 확인해야함
+	if (curr != idle_thread){
+		curr->tick_to_awake = tick;		
+		update_next_tick_to_awake(curr->tick_to_awake);
+		list_push_back (&sleep_list, &curr->elem);
+		// block 함수가 state 변경 & schedule() 호출 
+		thread_block();
+	}
+	
+	// do_schedule (THREAD_READY);
+	intr_set_level (old_level);
+}
+/* sleep list에 local tick이 인자로 받은 ticks값보다 크거나 같은 쓰레드를 깨움
+현재 대기중인 스레들의 wakup_tick 변수 중 가장 작은 값을 global variable tick에 저장 
+ */
+void thread_awake(int64_t ticks){
+	next_tick_to_awake = INT64_MAX;
+	struct thread * t;
+	struct list_elem *e;
+	
+	e = list_begin (&sleep_list);
+
+	while ( e != list_end(&sleep_list)) {
+		t = list_entry(e, struct thread, elem);
+			int64_t local_tick = t->tick_to_awake;
+
+			if (local_tick <= ticks){
+				e = list_remove(&t->elem);
+				thread_unblock(t);
+			}
+				//깨워줘야함
+			else{
+				e = list_next(e);
+				update_next_tick_to_awake(local_tick);
+		 	}
+	}
+
+}
+
+void update_next_tick_to_awake(int64_t ticks){
+	if (ticks < get_next_tick_to_awake()){
+		next_tick_to_awake = ticks;
+	}
+}
+
+int64_t get_next_tick_to_awake(void){
+	return next_tick_to_awake;
+}
+

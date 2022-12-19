@@ -59,6 +59,7 @@ sema_init (struct semaphore *sema, unsigned value) {
    sema_down function. */
 void
 sema_down (struct semaphore *sema) {
+	
 	enum intr_level old_level;
 
 	ASSERT (sema != NULL);
@@ -66,6 +67,7 @@ sema_down (struct semaphore *sema) {
 
 	old_level = intr_disable ();
 	while (sema->value == 0) {
+		//세마포의 값이 0이면, 현재스레드를 BLOCK 으로 변경 후 schedule() 호출 
 		list_push_back (&sema->waiters, &thread_current ()->elem);
 		thread_block ();
 	}
@@ -110,6 +112,7 @@ sema_up (struct semaphore *sema) {
 
 	old_level = intr_disable ();
 	if (!list_empty (&sema->waiters))
+	//waiters에 스레드가 존재하면 리스트 맨 처음에 위치한 스레드를 ready상태로 변경 후 schedule 호출
 		thread_unblock (list_entry (list_pop_front (&sema->waiters),
 					struct thread, elem));
 	sema->value++;
