@@ -119,7 +119,6 @@ struct thread {
 	struct list donation_list; // donation 리스트 (multiple donation)
 
 	/* Shared between thread.c and synch.c. */
-	// struct list_elem elem;	 /* List element. */
 	struct list_elem d_elem; // 도네이션 element
 };
 
@@ -167,5 +166,5 @@ void do_iret (struct intr_frame *tf);
 /* Priority Scheduling 관련 함수 추가 */
 void test_max_priority(void);
 bool cmp_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
-bool cmp_donate_priority(const struct list_elem *a, const struct list_elem *b, void *aux UNUSED);
+
 #endif /* threads/thread.h */
