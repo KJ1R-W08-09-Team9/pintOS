@@ -10,6 +10,8 @@ struct semaphore {
 	struct list waiters;        /* List of waiting threads. */
 };
 
+bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void *aux); 
+
 void sema_init (struct semaphore *, unsigned value);
 void sema_down (struct semaphore *);
 bool sema_try_down (struct semaphore *);
@@ -49,3 +51,12 @@ void cond_broadcast (struct condition *, struct lock *);
 // bool cmp_sem_priority (const struct list_elem *, const struct list_elem *, void * UNUSED);
 
 #endif /* threads/synch.h */
+
+
+/* FIXME : inversion테스트 추가 */
+#define max(a, b) (((a) > (b)) ? (a) : (b))
+bool cmp_sem_priority(const struct list_elem *a, const struct list_elem *b, void *aux);
+void donate_priority(void);
+void remove_with_lock(struct lock *lock);
+void refresh_priority(void);
+

@@ -91,9 +91,9 @@ timer_elapsed (int64_t then) {
 void
 timer_sleep (int64_t ticks) {
 	//시간이 음수거나 0 인 경우 예외처리
-	if (ticks <= 0){
-		return ;
-	}
+	// if (ticks <= 0){
+	// 	return ;
+	// }
 
 	// timer_ticks() : 인자로 주어진 ticks 동안 스레드를 block
 	int64_t start = timer_ticks ();
@@ -101,9 +101,10 @@ timer_sleep (int64_t ticks) {
 	ASSERT (intr_get_level () == INTR_ON);
 
 	 // busy waiting -> sleep & wake up
-	 if (timer_elapsed(start) < ticks){
-		thread_sleep(start + ticks);
-	 }
+	//  if (timer_elapsed(start) < ticks){
+	// 	thread_sleep(start + ticks);
+	//  }
+	 	thread_sleep(start + ticks);
 }
 
 /* Suspends execution for approximately MS milliseconds. */
