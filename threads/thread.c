@@ -738,7 +738,7 @@ void donate_priority(void)
 			break;
 		// waiters로 쫓겨난 thread (curr이 원하는 lock을 가지고 있던 thread)
 		struct thread *holder = curr->wait_on_lock->holder;
-		// curr의 높은 우선 순위를 자리 잠깐 뺏긴 thread에게 우선순위를 기부
+		// curr의 높은 우선 순	위를 자리 잠깐 뺏긴 thread에게 우선순위를 기부
 		holder->priority = curr->priority;
 		// holder에 딸린 wait on lock 순회 탐색
 		curr = holder;

@@ -90,10 +90,10 @@ timer_elapsed (int64_t then) {
 /* Suspends execution for approximately TICKS timer ticks. */
 void
 timer_sleep (int64_t ticks) {
-	//시간이 음수거나 0 인 경우 예외처리
-	// if (ticks <= 0){
-	// 	return ;
-	// }
+	// 시간이 음수거나 0 인 경우 예외처리
+	if (ticks <= 0){
+		return ;
+	}
 
 	// timer_ticks() : 인자로 주어진 ticks 동안 스레드를 block
 	int64_t start = timer_ticks ();

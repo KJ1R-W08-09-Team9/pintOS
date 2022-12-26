@@ -9,6 +9,8 @@
 #include "vm/vm.h"
 #endif
 
+#define USERPLOG
+
 
 /* States in a thread's life cycle. */
 enum thread_status {
@@ -113,7 +115,6 @@ struct thread {
 	struct intr_frame tf;               /* Information for switching */
 	unsigned magic;                     /* Detects stack overflow. */
 
-	/* FIXME : inversion테스트 추가 */
 	int origin_priority;	   // origin priority
 	struct lock *wait_on_lock; //쓰레드가 기다리고 있는 lock 자료구조 주소 저장 
 	struct list donation_list; // donation 리스트 (multiple donation)
