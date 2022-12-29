@@ -43,6 +43,7 @@ process_init(void)
 tid_t process_create_initd(const char *file_name)
 {
 	char *fn_copy;
+	char *temp, *temp_ptr;
 	tid_t tid;
 
 	/* Make a copy of FILE_NAME.
@@ -51,9 +52,12 @@ tid_t process_create_initd(const char *file_name)
 	if (fn_copy == NULL)
 		return TID_ERROR;
 	strlcpy(fn_copy, file_name, PGSIZE);
+	/* Project 2 file 이름 parsing */
+	temp = strtok_r(file_name," ", &temp_ptr);
+
 
 	/* Create a new thread to execute FILE_NAME. */
-	tid = thread_create(file_name, PRI_DEFAULT, initd, fn_copy);
+	tid = thread_create(temp, PRI_DEFAULT, initd, fn_copy);
 	if (tid == TID_ERROR)
 		palloc_free_page(fn_copy);
 	return tid;
@@ -171,9 +175,9 @@ int process_exec(void *f_name)
 	char *file_name = f_name;
 	bool success;
 	/* original을 다른 곳에서 쓸 수 있기 때문에 file name을 copy하여 사용 */
-	char copy_file_name[128];
+	// char copy_file_name[128];
 	/* strlen은 '\n' 을 포함하지 않으므로 + 1  */
-	memcpy(copy_file_name, file_name, strlen(file_name) + 1);
+	// memcpy(copy_file_name, file_name, strlen(file_name) + 1);
 
 	/* We cannot use the intr_frame in the thread structure.
 	 * This is because when current thread rescheduled,
@@ -187,21 +191,21 @@ int process_exec(void *f_name)
 	process_cleanup();
 
 	/* And then load the binary */
-	// success = load (file_name, &_if);
-	success = load(copy_file_name, &_if);
+	success = load (file_name, &_if);
+	// success = load(copy_file_name, &_if);
 
 	/* If load failed, quit. */
 	palloc_free_page(file_name);
-	if (!success)
-		thread_exit();
-		// return -1;
+	
+	if (!success){
+		return -1;
+		// thread_exit();
+	}
 		
 	// asm volatile ("movl %0, %%rsp; jmp intr_exit" : : "g" (&_if) : "memory");
 
 	/* command line parsing test */
-	// hex_dump(_if.rsp, _if.rsp, LOADER_PHYS_BASE - _if.rsp, true);
-	// hex_dump(_if.rsp, _if.rsp, KERN_BASE - _if.rsp, true);
-	hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
+	// hex_dump(_if.rsp, _if.rsp, USER_STACK - _if.rsp, true);
 	
 	
 	/* Start switched process. */
@@ -223,9 +227,12 @@ int process_wait(tid_t child_tid UNUSED)
 	/* XXX: Hint) The pintos exit if process_wait (initd), we recommend you
 	 * XXX:       to add infinite loop here before
 	 * XXX:       implementing the process_wait. */
-	while (1)
-	{
+	for(int i = 0; i < 100000000; i++){
+
 	}
+	// while (1)
+	// {
+	// }
 	return -1;
 }
 
@@ -238,6 +245,7 @@ void process_exit(void)
 	 * TODO: project2/process_termination.html).
 	 * TODO: We recommend you to implement process resource cleanup here. */
 
+	palloc_free_multiple(curr->file_descriptor_table, FDT_PAGES); 
 	process_cleanup();
 }
 
@@ -356,6 +364,7 @@ load(const char *file_name, struct intr_frame *if_)
 	bool success = false;
 	int i;
 
+	/* Project 2 parsing argument */
 	char *argv[128];
 	int argc = 0;
 	char *temp, *temp_ptr;
@@ -478,8 +487,9 @@ void argument_stack(char **argv, int argc, struct intr_frame *if_)
 	for (int i = argc - 1; i >= 0; i--)
 	{
 		/* strlen(argv[i])+1 만큼 rsp를 내리고, 그 공간에 argv[i]를 복사 */
-		if_->rsp = if_->rsp - (strlen(argv[i]) + 1);
-		memcpy(if_->rsp, argv[i], (strlen(argv[i]) + 1));
+		int arg_len = strlen(argv[i]);
+		if_->rsp = if_->rsp - (arg_len + 1);
+		memcpy(if_->rsp, argv[i], (arg_len + 1));
 		arg_addr[i] = if_->rsp;
 	}
 	/* 
@@ -488,21 +498,21 @@ void argument_stack(char **argv, int argc, struct intr_frame *if_)
 	*/
 	while (if_->rsp % 8 != 0)
 	{
-		if_->rsp--;
+		if_->rsp = if_->rsp -1; 
 		*(uint8_t *)if_->rsp = 0;
 	}
 	
 
-	for (int i = argc; i >= 0; i--)
+	for (int j = argc; j >= 0; j--)
 	{							 /* 주소는 NULL 포함하여 삽입 */
 		if_->rsp = if_->rsp - 8; /* 8 바이트 다운 */
-		if (i == argc)
+		if (j == argc)
 		{ /* argv 가장 위엔 데이터 0 삽입 */
 			memset(if_->rsp, 0, sizeof(char **));
 		}
 		else
 		{  /* arg_addrr 값 삽입, char** 의 크기느 8바이트 */
-			memcpy(if_->rsp, &arg_addr[i], sizeof(char **)); 
+			memcpy(if_->rsp, &arg_addr[j], sizeof(char **)); 
 		}
 	}
 

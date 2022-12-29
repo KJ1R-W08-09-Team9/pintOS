@@ -220,6 +220,16 @@ tid_t thread_create(const char *name, int priority,
 	만약 새로운 쓰레드의 우선순위가 더 높으면 schedule 호출하고 현재 쓰레드는 yield */
 	test_max_priority();
 
+	/* Project 2 System call file descriptor 관련 생성 */
+	t->file_descriptor_table = palloc_get_multiple(PAL_ZERO, FDT_PAGES);
+	if (t->file_descriptor_table == NULL) {
+		return TID_ERROR;
+	}
+	/* 0 : stdin, 1 : stdin*/
+	t->fd_index = 2; // 0은 stdin, 1은 stdout에 이미 할당
+	// t->file_descriptor_table[0] = 1; /* stdin에 1 */
+	// t->file_descriptor_table[1] = 2; /* stdout에 2 */
+
 	return tid;
 }
 
@@ -443,6 +453,9 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->origin_priority = priority;
 	t->wait_on_lock = NULL;
 	list_init(&t->donation_list);
+
+	/* Project 2 exit status 추가*/
+	t->exit_status = 0;
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

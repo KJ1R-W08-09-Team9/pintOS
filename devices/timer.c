@@ -100,11 +100,7 @@ timer_sleep (int64_t ticks) {
 
 	ASSERT (intr_get_level () == INTR_ON);
 
-	 // busy waiting -> sleep & wake up
-	//  if (timer_elapsed(start) < ticks){
-	// 	thread_sleep(start + ticks);
-	//  }
-	 	thread_sleep(start + ticks);
+	thread_sleep(start + ticks);
 }
 
 /* Suspends execution for approximately MS milliseconds. */

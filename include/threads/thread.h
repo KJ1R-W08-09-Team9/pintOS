@@ -5,6 +5,7 @@
 #include <list.h>
 #include <stdint.h>
 #include "threads/interrupt.h"
+#include "threads/synch.h"
 #ifdef VM
 #include "vm/vm.h"
 #endif
@@ -29,6 +30,10 @@ typedef int tid_t;
 #define PRI_MIN 0                       /* Lowest priority. */
 #define PRI_DEFAULT 31                  /* Default priority. */
 #define PRI_MAX 63                      /* Highest priority. */
+
+/* Project 2 file descriptor 관련 매크로 */
+#define FDT_PAGES 3
+#define FDCOUNT_LIMIT FDT_PAGES *(1<<9) // limit fdidx
 
 /* A kernel thread or user process.
  *
@@ -121,6 +126,12 @@ struct thread {
 
 	/* Shared between thread.c and synch.c. */
 	struct list_elem d_elem; // 도네이션 element
+
+	/* proejct 2 User program 관련 추가 */
+	int exit_status;
+	int fd_index;
+	struct file **file_descriptor_table;
+
 };
 
 /* If false (default), use round-robin scheduler.

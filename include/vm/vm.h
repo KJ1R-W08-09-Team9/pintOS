@@ -3,6 +3,7 @@
 #include <stdbool.h>
 #include "threads/palloc.h"
 
+
 enum vm_type {
 	/* page not initialized */
 	VM_UNINIT = 0,
@@ -46,7 +47,8 @@ struct page {
 	struct frame *frame;   /* Back reference for frame */
 
 	/* Your implementation */
-
+	/* Project 2 check buffer */
+	bool writable;
 	/* Per-type data are binded into the union.
 	 * Each function automatically detects the current union */
 	union {
