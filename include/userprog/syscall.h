@@ -5,7 +5,8 @@
 
 void syscall_init (void);
 
-/* Project 2 file sys lock */
+/* Project 2 관련 추가  */
+
 struct lock filesys_lock;
 /* 주소 값이 유저 영역 주소 값인지 확인하고, 유저 영역을 벗어난 영역일 경우 프로세스 종료 exit(-1)*/
 void check_address(void *);

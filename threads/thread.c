@@ -215,20 +215,30 @@ tid_t thread_create(const char *name, int priority,
 	t->tf.cs = SEL_KCSEG;
 	t->tf.eflags = FLAG_IF;
 
+	/* Project 2 관련 추가 */
+	t->parent_t = thread_current(); /* 부모 프로세스 저장 */
+	sema_init(&t->sema_exit, 0);	/* exit 세마포어 0으로 초기화 */
+	sema_init(&t->sema_wait, 0);	/* wait 세마포어 0으로 초기화 */
+	sema_init(&t->sema_fork, 0);	/* fork 세마포어 0으로 초기화 */
+
+	/* 자식 리스트에 추가 */
+	list_push_back(&thread_current()->child_list, &t->child_elem);
+
+	/* Project 2 FDT 할당 */
+	t->file_descriptor_table = palloc_get_multiple(PAL_ZERO, FDT_PAGES);
+	if (t->file_descriptor_table == NULL)
+	{
+		return TID_ERROR;
+	}
+	/* 0 : stdin, 1 : stdin*/
+	t->fd_index = 2;				 // 0은 stdin, 1은 stdout에 이미 할당
+	t->file_descriptor_table[0] = 1; /* stdin에 1 */
+	t->file_descriptor_table[1] = 2; /* stdout에 2 */
+
 	thread_unblock(t);
 	/* create 후 ready_list에 add 시 new thread와 current thread의 우선순위 비교,
 	만약 새로운 쓰레드의 우선순위가 더 높으면 schedule 호출하고 현재 쓰레드는 yield */
 	test_max_priority();
-
-	/* Project 2 System call file descriptor 관련 생성 */
-	t->file_descriptor_table = palloc_get_multiple(PAL_ZERO, FDT_PAGES);
-	if (t->file_descriptor_table == NULL) {
-		return TID_ERROR;
-	}
-	/* 0 : stdin, 1 : stdin*/
-	t->fd_index = 2; // 0은 stdin, 1은 stdout에 이미 할당
-	// t->file_descriptor_table[0] = 1; /* stdin에 1 */
-	// t->file_descriptor_table[1] = 2; /* stdout에 2 */
 
 	return tid;
 }
@@ -330,7 +340,7 @@ void thread_yield(void)
 	old_level = intr_disable();
 	if (curr != idle_thread)
 		list_insert_ordered(&ready_list, &curr->elem, cmp_priority, 0);
-	// list_push_back (&ready_list, &curr->elem);
+
 	do_schedule(THREAD_READY);
 	intr_set_level(old_level);
 }
@@ -454,8 +464,9 @@ init_thread(struct thread *t, const char *name, int priority)
 	t->wait_on_lock = NULL;
 	list_init(&t->donation_list);
 
-	/* Project 2 exit status 추가*/
-	t->exit_status = 0;
+	/* Project 2 관련 추가*/
+	/* child list 초기화 */
+	list_init(&t->child_list);
 }
 
 /* Chooses and returns the next thread to be scheduled.  Should

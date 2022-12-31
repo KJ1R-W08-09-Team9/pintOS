@@ -10,5 +10,9 @@ int process_wait (tid_t);
 void process_exit (void);
 void process_activate (struct thread *next);
 
+/* Project 2 추가*/
 void argument_stack(char **argv, int argc, struct intr_frame *if_);
+struct thread* get_child_process(int );
+bool remove_child_process(int );
+
 #endif /* userprog/process.h */
